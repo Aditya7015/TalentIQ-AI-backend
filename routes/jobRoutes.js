@@ -1,5 +1,5 @@
 const express = require("express");
-const { createJob, getCompanyJobs, getAllJobs } = require("../controllers/jobController");
+const { createJob, getCompanyJobs, getAllJobs, getJobById } = require("../controllers/jobController");
 const { protect, authorize } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
@@ -19,6 +19,9 @@ router.get(
 );
 
 router.get("/", getAllJobs);
+
+// GET SINGLE JOB (FOR DETAILS PAGE)
+router.get("/:id", getJobById);
 
 
 module.exports = router;
