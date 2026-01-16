@@ -10,6 +10,10 @@ const router = express.Router();
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL;
 
+// console.log("OPENROUTER_API_KEY:", process.env.OPENROUTER_API_KEY);
+// console.log("OPENROUTER_API_URL:", process.env.OPENROUTER_API_URL);
+
+
 
 // Store conversation history
 const chatSessions = new Map();
