@@ -9,15 +9,25 @@ const app = express();
 // Middlewares
 app.use(
   cors({
-    origin: [
-      "https://talentiq-ai.onrender.com", // Render frontend
-      "http://localhost:5173"            // Local dev
-    ],
+    origin: function (origin, callback) {
+      // allow requests with no origin (like mobile apps, Postman)
+      if (!origin) return callback(null, true);
+
+      // allow all Vercel deployments
+      if (
+        origin.includes(".vercel.app") ||
+        origin === "http://localhost:5173"
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
+
 
 app.use(express.json());
 
