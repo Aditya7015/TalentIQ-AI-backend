@@ -7,7 +7,18 @@ const connectDB = require("./config/db");
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "https://talentiq-ai.onrender.com", // Render frontend
+      "http://localhost:5173"            // Local dev
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // Connect DB
