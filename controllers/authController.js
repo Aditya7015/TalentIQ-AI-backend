@@ -20,7 +20,7 @@ exports.register = async (req, res) => {
     role,
   });
 
-  await sendEmail({
+  sendEmail({
   to: user.email,
   ...welcomeEmail(user.name, user.role),
   } );
@@ -46,7 +46,7 @@ exports.login = async (req, res) => {
     { expiresIn: "1d" }
   );
 
-  await sendEmail({
+  sendEmail({
   to: user.email,
   subject: "New Login Detected 🔐",
   html: `<p>You logged into TalentIQ AI successfully.</p>`,

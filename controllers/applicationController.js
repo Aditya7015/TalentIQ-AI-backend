@@ -129,10 +129,15 @@ exports.updateApplicationStatus = async (req, res) => {
     const user = await User.findById(application.candidateId);
     const job = await Job.findById(application.jobId);
 
-    await sendEmail({
-      to: user.email,
-      ...statusUpdateEmail(job.title, status),
-    });
+    try {
+  sendEmail({
+    to: user.email,
+    ...statusUpdateEmail(job.title, status),
+  });
+} catch (e) {
+  console.log("Email skipped");
+}
+
 
     res.json(application);
   } catch (error) {
