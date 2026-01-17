@@ -1,26 +1,33 @@
-const nodemailer = require("nodemailer");
+const axios = require("axios");
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 
 exports.sendEmail = async ({ to, subject, html }) => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to,
-      subject,
-      html,
-    });
+    await axios.post(
+      BREVO_URL,
+      {
+        sender: {
+          name: "TalentIQ AI",
+          email: process.env.EMAIL_FROM,
+        },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    console.log("✅ Email sent:", info.response);
+    console.log("✅ Email sent via Brevo API to:", to);
   } catch (error) {
-    console.error("❌ SMTP ERROR:", error);
+    console.error(
+      "❌ Brevo API Error:",
+      error.response?.data || error.message
+    );
   }
 };
