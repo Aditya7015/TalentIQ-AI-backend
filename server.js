@@ -46,6 +46,8 @@ app.use("/api/applications", require("./routes/applicationRoutes"));
 app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes")); 
 app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
+app.use("/api/ai/recruiter", require("./routes/aiRecruiterRoutes"));
+
 
 
 
