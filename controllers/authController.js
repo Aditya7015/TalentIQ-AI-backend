@@ -1,6 +1,8 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { hashPassword, comparePassword } = require("../utils/hashPassword");
+const { sendEmail } = require("../services/emailService");
+const { welcomeEmail } = require("../services/emailTemplates");
 
 exports.register = async (req, res) => {
   const { name, email, password, role } = req.body;
@@ -17,6 +19,12 @@ exports.register = async (req, res) => {
     password: hashed,
     role,
   });
+
+  await sendEmail({
+  to: user.email,
+  ...welcomeEmail(user.name, user.role),
+  } );
+
 
   res.status(201).json({ message: "User registered" });
 };
@@ -37,6 +45,13 @@ exports.login = async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
+
+  await sendEmail({
+  to: user.email,
+  subject: "New Login Detected 🔐",
+  html: `<p>You logged into TalentIQ AI successfully.</p>`,
+  });
+
 
   res.json({ token, role: user.role });
 };
