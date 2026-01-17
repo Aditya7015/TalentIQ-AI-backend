@@ -47,18 +47,18 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes")); 
 app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
 
-app.get("/api/test-email", async (req, res) => {
-  try {
-    await sendEmail({
-      to: "yourpersonalemail@gmail.com",
-      subject: "TalentIQ AI – Render Test",
-      html: "<h2>Email from Render works 🚀</h2>",
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// const { sendEmail } = require("./services/emailService");
+
+// app.get("/api/local-email-test", async (req, res) => {
+//   await sendEmail({
+//     to: "at386619@gmail.com",
+//     subject: "TalentIQ AI – LOCAL SMTP TEST",
+//     html: "<h2>If you see this, Brevo SMTP works 🎉</h2>",
+//   });
+
+//   res.json({ ok: true });
+// });
+
 
 
 const PORT = process.env.PORT || 5000;
