@@ -47,6 +47,20 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes")); 
 app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
 
+app.get("/api/test-email", async (req, res) => {
+  try {
+    await sendEmail({
+      to: "yourpersonalemail@gmail.com",
+      subject: "TalentIQ AI – Render Test",
+      html: "<h2>Email from Render works 🚀</h2>",
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
