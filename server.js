@@ -47,18 +47,6 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes")); 
 app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
 
-// const { sendEmail } = require("./services/emailService");
-
-// app.get("/api/local-email-test", async (req, res) => {
-//   await sendEmail({
-//     to: "at386619@gmail.com",
-//     subject: "TalentIQ AI – LOCAL SMTP TEST",
-//     html: "<h2>If you see this, Brevo SMTP works 🎉</h2>",
-//   });
-
-//   res.json({ ok: true });
-// });
-
 
 
 const PORT = process.env.PORT || 5000;

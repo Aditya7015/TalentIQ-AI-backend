@@ -1,17 +1,15 @@
 // routes/aiResumeRoutes.js
 const express = require('express');
-const axios = require('axios');
+const Groq = require('groq-sdk');
 const router = express.Router();
 
-// Your OpenRouter API Key (same as chatbot)
-// const OPENROUTER_API_KEY = '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';
-// const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL;
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-// console.log("OPENROUTER_API_KEY:", process.env.OPENROUTER_API_KEY);
-// console.log("OPENROUTER_API_URL:", process.env.OPENROUTER_API_URL);
-
+// Use the model that's working for chatbot
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile'; // Or use whichever model your chatbot is using successfully
 
 // Generate resume sections
 router.post('/generate', async (req, res) => {
@@ -43,7 +41,8 @@ router.post('/generate', async (req, res) => {
         4. Quantify achievements where possible (increased by 30%, reduced time by 20%, etc.)
         5. Tailor content specifically to the target job
         6. Use industry-standard terminology
-        7. Keep each section focused and impactful`;
+        7. Keep each section focused and impactful
+        8. IMPORTANT: Your response MUST be valid JSON format only, no other text`;
 
         // Prepare user prompt
         const userPrompt = `Generate a professional resume with the following information:
@@ -73,7 +72,7 @@ router.post('/generate', async (req, res) => {
         
         TEMPLATE STYLE: ${template}
         
-        Please generate the resume sections in JSON format with the following structure:
+        Please generate ONLY valid JSON with the following structure:
         {
           "summary": "Professional summary here...",
           "experience": "Experience section here...",
@@ -86,9 +85,9 @@ router.post('/generate', async (req, res) => {
         
         Only include the sections that were requested and for which data was provided.`;
 
-        // Prepare the API request
-        const requestData = {
-            model: 'openai/gpt-3.5-turbo',
+        // Make API call to Groq
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
             messages: [
                 {
                     role: 'system',
@@ -100,70 +99,71 @@ router.post('/generate', async (req, res) => {
                 }
             ],
             temperature: 0.7,
-            max_tokens: 1500
-        };
-
-        // Make API call
-        const response = await axios.post(OPENROUTER_API_URL, requestData, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'ATS-AI Resume Builder'
-            },
-            timeout: 45000 // 45 seconds for resume generation
+            max_tokens: 2000,
+            response_format: { type: "json_object" } // Force JSON response
         });
 
         // Parse the response
-        const aiResponse = response.data.choices[0].message.content;
+        const aiResponse = completion.choices[0].message.content;
+        
+        console.log('Raw AI Response:', aiResponse.substring(0, 200) + '...');
         
         // Try to parse JSON from response
         let parsedResume;
         try {
-            // Extract JSON from markdown code blocks if present
-            const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
-                             aiResponse.match(/{[\s\S]*}/);
-            
-            if (jsonMatch) {
-                parsedResume = JSON.parse(jsonMatch[1]);
-            } else {
-                parsedResume = JSON.parse(aiResponse);
-            }
+            // Try direct JSON parse first
+            parsedResume = JSON.parse(aiResponse);
         } catch (parseError) {
-            console.log('Could not parse JSON, using raw response');
-            // If JSON parsing fails, return structured sections
-            parsedResume = {
-                summary: aiResponse,
-                experience: userData.experience || '',
-                skills: userData.skills || '',
-                education: userData.education || ''
-            };
+            console.log('Direct JSON parse failed, trying to extract JSON...');
+            try {
+                // Extract JSON from markdown code blocks if present
+                const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
+                                 aiResponse.match(/{\s*"summary"[\s\S]*}/);
+                
+                if (jsonMatch) {
+                    parsedResume = JSON.parse(jsonMatch[1].trim());
+                } else {
+                    throw new Error('No JSON found in response');
+                }
+            } catch (secondError) {
+                console.log('JSON extraction failed, creating structured response from raw text');
+                // If JSON parsing fails, create a structured response
+                parsedResume = {
+                    summary: aiResponse.split('\n')[0] || "Professional summary",
+                    experience: userData.experience || '',
+                    skills: userData.skills || '',
+                    education: userData.education || '',
+                    note: "AI response was not valid JSON, using structured format"
+                };
+            }
         }
 
         res.json({
             success: true,
             resume: parsedResume,
-            rawResponse: aiResponse,
-            usage: response.data.usage,
+            rawResponse: aiResponse.substring(0, 500) + '...',
+            usage: completion.usage,
+            model_used: DEFAULT_MODEL,
             generatedAt: new Date().toISOString()
         });
 
     } catch (error) {
-        console.error('Resume Generation Error:', error.response?.data || error.message);
+        console.error('Resume Generation Error:', error.message);
         
         let errorMessage = 'Failed to generate resume';
-        if (error.response?.status === 401) {
+        if (error.status === 401) {
             errorMessage = 'AI service authentication failed';
-        } else if (error.response?.status === 429) {
+        } else if (error.status === 429) {
             errorMessage = 'Rate limit exceeded. Please try again in a few minutes.';
-        } else if (error.code === 'ECONNABORTED') {
-            errorMessage = 'Request timeout. The resume generation is taking too long.';
+        } else if (error.message?.includes('model_not_found')) {
+            errorMessage = 'AI model not available. Please try a different model.';
         }
         
         res.status(500).json({
             success: false,
             error: errorMessage,
-            details: error.response?.data
+            details: error.message,
+            model_attempted: DEFAULT_MODEL
         });
     }
 });
@@ -191,8 +191,8 @@ router.post('/generate-cover-letter', async (req, res) => {
         4. Keep it to 3-4 paragraphs
         5. Include appropriate salutation and closing`;
 
-        const requestData = {
-            model: 'openai/gpt-3.5-turbo',
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
             messages: [
                 {
                     role: 'user',
@@ -201,28 +201,21 @@ router.post('/generate-cover-letter', async (req, res) => {
             ],
             temperature: 0.7,
             max_tokens: 800
-        };
-
-        const response = await axios.post(OPENROUTER_API_URL, requestData, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'ATS-AI Cover Letter'
-            }
         });
 
         res.json({
             success: true,
-            coverLetter: response.data.choices[0].message.content,
-            usage: response.data.usage
+            coverLetter: completion.choices[0].message.content,
+            usage: completion.usage,
+            model_used: DEFAULT_MODEL
         });
 
     } catch (error) {
         console.error('Cover Letter Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to generate cover letter'
+            error: 'Failed to generate cover letter',
+            details: error.message
         });
     }
 });
@@ -238,8 +231,8 @@ router.post('/improve', async (req, res) => {
         
         Provide the improved version with a brief explanation of the changes.`;
 
-        const requestData = {
-            model: 'openai/gpt-3.5-turbo',
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
             messages: [
                 {
                     role: 'user',
@@ -248,31 +241,26 @@ router.post('/improve', async (req, res) => {
             ],
             temperature: 0.7,
             max_tokens: 500
-        };
-
-        const response = await axios.post(OPENROUTER_API_URL, requestData, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json'
-            }
         });
 
         res.json({
             success: true,
-            improvedText: response.data.choices[0].message.content,
-            usage: response.data.usage
+            improvedText: completion.choices[0].message.content,
+            usage: completion.usage,
+            model_used: DEFAULT_MODEL
         });
 
     } catch (error) {
         console.error('Improvement Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to improve text'
+            error: 'Failed to improve text',
+            details: error.message
         });
     }
 });
 
-// Resume templates
+// Resume templates (UNCHANGED)
 router.get('/templates', (req, res) => {
     const templates = [
         {
@@ -318,13 +306,83 @@ router.get('/templates', (req, res) => {
     });
 });
 
-// Health check
-router.get('/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'AI Resume Builder API is running',
-        timestamp: new Date().toISOString()
-    });
+// Health check with model test
+router.get('/health', async (req, res) => {
+    try {
+        // Test if Groq is working
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
+            messages: [{ role: 'user', content: 'Say hello in one word' }],
+            max_tokens: 10
+        });
+
+        res.json({
+            success: true,
+            message: 'AI Resume Builder API is running with Groq',
+            groq_status: 'working',
+            model_used: DEFAULT_MODEL,
+            test_response: completion.choices[0].message.content,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            message: 'AI Resume Builder API is running but Groq test failed',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Test different models
+router.get('/test-models', async (req, res) => {
+    try {
+        const modelsToTest = [
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'mixtral-8x7b-32768',
+            'gemma2-9b-it'
+        ];
+        
+        const results = [];
+        
+        for (const model of modelsToTest) {
+            try {
+                const startTime = Date.now();
+                const completion = await groq.chat.completions.create({
+                    model: model,
+                    messages: [{ role: 'user', content: 'Say "test" in one word' }],
+                    max_tokens: 5,
+                    temperature: 0.1
+                });
+                
+                const endTime = Date.now();
+                
+                results.push({
+                    model: model,
+                    status: 'working',
+                    response: completion.choices[0].message.content.trim(),
+                    response_time: endTime - startTime + 'ms'
+                });
+            } catch (error) {
+                results.push({
+                    model: model,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+        
+        res.json({
+            success: true,
+            models_tested: results
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 module.exports = router;

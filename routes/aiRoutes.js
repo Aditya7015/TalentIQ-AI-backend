@@ -1,19 +1,16 @@
 // routes/aiRoutes.js
 const express = require('express');
-const axios = require('axios');
+const Groq = require('groq-sdk');
 const router = express.Router();
 
-// Your OpenRouter API Key
-// const OPENROUTER_API_KEY = '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';
-// const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL;
-
-// console.log("OPENROUTER_API_KEY:", process.env.OPENROUTER_API_KEY);
-// console.log("OPENROUTER_API_URL:", process.env.OPENROUTER_API_URL);
-
-
+// Current Groq models
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const CHAT_MODEL = 'llama-3.1-8b-instant'; // Faster model for chat
 
 // Store conversation history
 const chatSessions = new Map();
@@ -55,9 +52,10 @@ router.post('/test-ai', async (req, res) => {
             });
         }
 
-        // Prepare request to OpenRouter
-        const requestData = {
-            model: 'openai/gpt-3.5-turbo',
+        console.log('Sending request to Groq...');
+
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
             messages: [
                 {
                     role: 'user',
@@ -66,45 +64,34 @@ router.post('/test-ai', async (req, res) => {
             ],
             max_tokens: 200,
             temperature: 0.7
-        };
-
-        console.log('Sending request to OpenRouter...');
-
-        const response = await axios.post(OPENROUTER_API_URL, requestData, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'ATS-AI Portal'
-            },
-            timeout: 30000
         });
 
-        console.log('OpenRouter response received');
+        console.log('Groq response received');
 
         res.json({
             success: true,
-            response: response.data.choices[0].message.content,
-            usage: response.data.usage
+            response: completion.choices[0].message.content,
+            usage: completion.usage,
+            model_used: DEFAULT_MODEL
         });
 
     } catch (error) {
-        console.error('AI Test Error:', error.response?.data || error.message);
+        console.error('AI Test Error:', error.message);
         
         let errorMessage = 'Failed to process request';
         
-        if (error.response?.status === 401) {
-            errorMessage = 'Invalid API key. Check your OpenRouter API key.';
-        } else if (error.response?.status === 429) {
+        if (error.status === 401) {
+            errorMessage = 'Invalid API key. Check your Groq API key.';
+        } else if (error.status === 429) {
             errorMessage = 'Rate limit exceeded. Please try again later.';
-        } else if (error.code === 'ECONNABORTED') {
-            errorMessage = 'Request timeout. Please try again.';
+        } else if (error.message?.includes('decommissioned')) {
+            errorMessage = 'Model is no longer available. Please check available models.';
         }
         
         res.status(500).json({
             success: false,
             error: errorMessage,
-            details: error.response?.data
+            details: error.message
         });
     }
 });
@@ -130,25 +117,15 @@ router.post('/chat', async (req, res) => {
             content: `${context?.role ? context.role + ': ' : ''}${message}`
         });
 
-        // Prepare request
-        const requestData = {
-            model: 'openai/gpt-3.5-turbo',
+        // Call Groq API - using faster model for chat
+        const completion = await groq.chat.completions.create({
+            model: CHAT_MODEL,
             messages: session.messages,
             max_tokens: 500,
             temperature: 0.7
-        };
-
-        const response = await axios.post(OPENROUTER_API_URL, requestData, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'ATS-AI Chatbot'
-            },
-            timeout: 30000
         });
 
-        const aiResponse = response.data.choices[0].message.content;
+        const aiResponse = completion.choices[0].message.content;
 
         // Add AI response
         session.messages.push({
@@ -168,21 +145,51 @@ router.post('/chat', async (req, res) => {
             success: true,
             response: aiResponse,
             sessionId,
-            usage: response.data.usage
+            usage: completion.usage,
+            model_used: CHAT_MODEL
         });
 
     } catch (error) {
         console.error('Chat Error:', error.message);
         
+        // Try with alternative model if first fails
+        if (error.message?.includes('decommissioned') || error.message?.includes('not found')) {
+            try {
+                // Fallback to a different model
+                const session = getChatSession(req.body.sessionId || 'default');
+                const completion = await groq.chat.completions.create({
+                    model: 'mixtral-8x7b-32768', // Alternative model
+                    messages: session.messages,
+                    max_tokens: 500,
+                    temperature: 0.7
+                });
+                
+                const aiResponse = completion.choices[0].message.content;
+                
+                res.json({
+                    success: true,
+                    response: aiResponse,
+                    sessionId: req.body.sessionId || 'default',
+                    usage: completion.usage,
+                    model_used: 'mixtral-8x7b-32768',
+                    note: 'Used fallback model'
+                });
+                return;
+            } catch (fallbackError) {
+                console.error('Fallback model also failed:', fallbackError.message);
+            }
+        }
+        
         res.status(500).json({
             success: false,
             response: "I'm having technical difficulties. Please try again.",
-            sessionId: req.body.sessionId || 'default'
+            sessionId: req.body.sessionId || 'default',
+            error: error.message
         });
     }
 });
 
-// Get chat history
+// Get chat history (UNCHANGED)
 router.get('/history/:sessionId', (req, res) => {
     try {
         const { sessionId } = req.params;
@@ -210,14 +217,57 @@ router.get('/history/:sessionId', (req, res) => {
     }
 });
 
+// List available models
+router.get('/models', async (req, res) => {
+    try {
+        const models = await groq.models.list();
+        const availableModels = models.data.map(m => ({
+            id: m.id,
+            object: m.object,
+            created: m.created
+        }));
+        
+        res.json({
+            success: true,
+            models: availableModels,
+            count: availableModels.length
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Health check
-router.get('/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'AI API is running',
-        timestamp: new Date().toISOString(),
-        activeSessions: chatSessions.size
-    });
+router.get('/health', async (req, res) => {
+    try {
+        // Test if Groq is working
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
+            messages: [{ role: 'user', content: 'Say hello in one word' }],
+            max_tokens: 10
+        });
+
+        res.json({
+            success: true,
+            message: 'AI API is running with Groq',
+            groq_status: 'working',
+            model_used: DEFAULT_MODEL,
+            test_response: completion.choices[0].message.content,
+            timestamp: new Date().toISOString(),
+            activeSessions: chatSessions.size
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            message: 'AI API is running but Groq test failed',
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            activeSessions: chatSessions.size
+        });
+    }
 });
 
 module.exports = router;
