@@ -1,27 +1,4 @@
-// const multer = require("multer");
-
-// const storage = multer.diskStorage({
-//   destination(req, file, cb) {
-//     cb(null, "uploads/");
-//   },
-//   filename(req, file, cb) {
-//     cb(null, `${Date.now()}-${file.originalname}`);
-//   },
-// });
-
-// const fileFilter = (req, file, cb) => {
-//   if (file.mimetype === "application/pdf") {
-//     cb(null, true);
-//   } else {
-//     cb(new Error("Only PDF allowed"), false);
-//   }
-// };
-
-// const upload = multer({ storage, fileFilter });
-
-// module.exports = upload;
-
-
+// backend/middlewares/uploadMiddleware.js
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../config/cloudinary");

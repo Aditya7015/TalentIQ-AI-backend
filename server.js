@@ -47,8 +47,7 @@ app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes")); 
 app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
 app.use("/api/ai/recruiter", require("./routes/aiRecruiterRoutes"));
-
-
+app.use("/api/profile", require("./routes/profileRoutes"));
 
 
 const PORT = process.env.PORT || 5000;
