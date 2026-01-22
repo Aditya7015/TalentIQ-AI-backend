@@ -258,7 +258,9 @@ exports.uploadProfilePicture = async (req, res) => {
 };
 
 
-// Get candidate profile for recruiter view
+// Add this function to your profileController.js
+
+// Get candidate profile for recruiter view with both resumes
 exports.getCandidateProfile = async (req, res) => {
   try {
     const { candidateId } = req.params;
@@ -270,23 +272,30 @@ exports.getCandidateProfile = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found" });
     }
     
-    // Check if candidate has applied to any of recruiter's jobs
+    // Get the application resume for this specific job
     const Application = require("../models/Application");
-    const applicationExists = await Application.findOne({
+    const application = await Application.findOne({
       candidateId: candidateId,
       companyId: req.user.companyId
     });
     
-    if (!applicationExists) {
+    if (!application) {
       return res.status(403).json({ 
         message: "Access denied. Candidate has not applied to your company's jobs."
       });
     }
     
-    // Format the response to include location from address fields
+    // Format the response to include both resumes
     const formattedCandidate = {
       ...candidate._doc,
-      location: candidate.city || candidate.state || candidate.country || "Location not specified"
+      location: candidate.city || candidate.state || candidate.country || "Location not specified",
+      // Include application resume (resume uploaded during application)
+      applicationResumeUrl: application.resumeUrl,
+      appliedAt: application.createdAt,
+      applicationStatus: application.status,
+      // Profile resume is already in candidate.resumeUrl
+      hasApplicationResume: !!application.resumeUrl,
+      hasProfileResume: !!candidate.resumeUrl
     };
     
     res.json(formattedCandidate);
