@@ -1,7 +1,6 @@
-// backend/routes/profileRoutes.js
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middlewares/authMiddleware");
+const { protect, authorize } = require("../middlewares/authMiddleware"); // Make sure authorize is imported
 const { 
   getProfile,
   updateProfile,
@@ -9,7 +8,8 @@ const {
   updateEducation,
   updateExperience,
   uploadResume,
-  uploadProfilePicture, // Add this
+  uploadProfilePicture,
+  getCandidateProfile, // Add this import
   deleteEducation,
   deleteExperience,
   deleteSkill
@@ -28,11 +28,18 @@ router.delete("/education/:eduId", deleteEducation);
 router.patch("/experience", updateExperience);
 router.delete("/experience/:expId", deleteExperience);
 
+// NEW: Get candidate profile for recruiter - FIXED SYNTAX
+router.get(
+  "/candidate/:candidateId",
+  authorize("recruiter"), // This should work now
+  getCandidateProfile
+);
+
 // File uploads - using Cloudinary
 const upload = require("../middlewares/uploadMiddleware");
-const uploadProfilePictureMiddleware = require("../middlewares/uploadProfilePicture"); // Add this
+const uploadProfilePictureMiddleware = require("../middlewares/uploadProfilePicture");
 
 router.post("/upload-resume", upload.single("resume"), uploadResume);
-router.post("/upload-profile-picture", uploadProfilePictureMiddleware.single("profilePicture"), uploadProfilePicture); // Add this
+router.post("/upload-profile-picture", uploadProfilePictureMiddleware.single("profilePicture"), uploadProfilePicture);
 
 module.exports = router;

@@ -256,3 +256,42 @@ exports.uploadProfilePicture = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// Get candidate profile for recruiter view
+exports.getCandidateProfile = async (req, res) => {
+  try {
+    const { candidateId } = req.params;
+    
+    // Verify the recruiter has access to this candidate's data
+    const candidate = await User.findById(candidateId).select("-password");
+    
+    if (!candidate) {
+      return res.status(404).json({ message: "Candidate not found" });
+    }
+    
+    // Check if candidate has applied to any of recruiter's jobs
+    const Application = require("../models/Application");
+    const applicationExists = await Application.findOne({
+      candidateId: candidateId,
+      companyId: req.user.companyId
+    });
+    
+    if (!applicationExists) {
+      return res.status(403).json({ 
+        message: "Access denied. Candidate has not applied to your company's jobs."
+      });
+    }
+    
+    // Format the response to include location from address fields
+    const formattedCandidate = {
+      ...candidate._doc,
+      location: candidate.city || candidate.state || candidate.country || "Location not specified"
+    };
+    
+    res.json(formattedCandidate);
+  } catch (error) {
+    console.error("Get candidate profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
