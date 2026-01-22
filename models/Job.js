@@ -25,6 +25,13 @@ const jobSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    // NEW: Status field for job management
+    status: {
+      type: String,
+      enum: ["active", "paused", "closed", "draft"],
+      default: "active"
+    }
   },
   { timestamps: true }
 );
