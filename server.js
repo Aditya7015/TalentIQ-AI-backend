@@ -49,6 +49,9 @@ app.use("/api/ai-resume", require("./routes/aiResumeRoutes"));
 app.use("/api/ai/recruiter", require("./routes/aiRecruiterRoutes"));
 app.use("/api/profile", require("./routes/profileRoutes"));
 
+app.get('/ping', (req, res) => {
+  res.send('Server is Loading');
+})
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
