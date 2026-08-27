@@ -9,7 +9,7 @@ const groq = new Groq({
 });
 
 // Use the model that's working for chatbot
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile'; // Or use whichever model your chatbot is using successfully
+const DEFAULT_MODEL = 'openai/gpt-oss-20b'; // Or use whichever model your chatbot is using successfully
 
 // Generate resume sections
 router.post('/generate', async (req, res) => {

@@ -9,14 +9,17 @@ const groq = new Groq({
 });
 
 // Current Groq models
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
-const CHAT_MODEL = 'llama-3.1-8b-instant'; // Faster model for chat
+// const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+// const CHAT_MODEL = 'llama-3.1-8b-instant'; // Faster model for chat
+
+const DEFAULT_MODEL = 'openai/gpt-oss-20b';
+const CHAT_MODEL = 'openai/gpt-oss-20b';
 
 // Store conversation history
 const chatSessions = new Map();
 
 // System prompt for ATS
-const SYSTEM_PROMPT = `You are CareerBot, an AI assistant for ATS-AI Job Portal. Help users with:
+const SYSTEM_PROMPT = `You are CareerBot, an AI assistant for TalentIQ-AI Job Portal. Help users with:
 - Resume building and optimization
 - Cover letter writing
 - Interview preparation

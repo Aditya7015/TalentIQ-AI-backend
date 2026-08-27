@@ -13,7 +13,7 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const DEFAULT_MODEL = 'openai/gpt-oss-20b';
 
 // SIMPLIFIED MIDDLEWARE - Remove isRecruiter check temporarily
 // const isRecruiter = (req, res, next) => {
